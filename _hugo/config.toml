@@ -1,6 +1,6 @@
-baseURL = "https://joshcarp.com/talks-cloud-functions"
+baseURL = "https://joshcarp.com/talks-gcs"
 languageCode = "en-us"
-title = "My New Hugo Site"
+title = "gsc buckets"
 
 theme = "reveal-hugo"
 
