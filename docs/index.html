@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+	<meta name="generator" content="Hugo 0.71.0-DEV" />
+    <meta charset="utf-8">
+<title>Google cloud functions</title>
+
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="/talks-cloud-functions/reveal-js/css/reset.css">
+<link rel="stylesheet" href="/talks-cloud-functions/reveal-js/css/reveal.css"><link rel="stylesheet" href="/talks-cloud-functions/reveal-js/css/theme/black.css" id="theme">
+<link rel="stylesheet" href="/talks-cloud-functions/highlight-js/default.min.css">
+    
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+  
+
+    <section><h1 id="google-cloud-functions">Google cloud functions</h1>
+</section><section>
+<h1 id="google-cloud-functions-1">Google cloud functions</h1>
+<ul>
+<li>Serverless</li>
+<li>Docker-less</li>
+</ul>
+</section><section>
+<h1 id="supported-languages">Supported languages</h1>
+<ul>
+<li>Node.js 8 &amp; Node.js 10</li>
+<li>Python</li>
+<li>Go 1.11 &amp; Go 1.13</li>
+</ul>
+</section><section>
+<h1 id="code-structure">Code structure</h1>
+<pre><code>.
+├── function.go --&gt; function with http.HandlerFunc
+├── go.mod
+└── shared/
+    └── shared.go
+</code></pre></section><section>
+<h1 id="httphandlerfunc">http.Handlerfunc</h1>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">HandlerFunc</span> <span style="color:#66d9ef">func</span>(<span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">ResponseWriter</span>, <span style="color:#f92672">*</span><span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">Request</span>)
+</code></pre></div><p>example:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">ServeHTTP</span>(<span style="color:#a6e22e">w</span> <span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">ResponseWriter</span>, <span style="color:#a6e22e">r</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">Request</span>) {
+  <span style="color:#a6e22e">w</span>.<span style="color:#a6e22e">Write</span>([]byte(<span style="color:#e6db74">&#34;Hello, world&#34;</span>))
+}
+</code></pre></div></section><section>
+<h1 id="deploying-from-github-actions">Deploying from github actions</h1>
+<p>Need: github service account with <code>Cloud Functions Admin</code> permissions</p>
+<ul>
+<li>go to <a href="https://console.cloud.google.com/iam-admin/serviceaccounts?project=gopper">cloud console iam admin service accounts</a></li>
+<li>click <code>Create Service account</code></li>
+<li>give service account <code>Cloud Functions Admin</code> permissions</li>
+</ul>
+</section><section>
+<h1 id="deploying-from-github-actions-1">Deploying from github actions</h1>
+<ul>
+<li>download access key</li>
+<li>Put access key in <code>GCLOUD_SERVICE_KEY</code> secret in repo</li>
+</ul>
+</section><section>
+<h1 id="github-actions">Github actions</h1>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">name</span>: cloud-function-deploy
+
+<span style="color:#66d9ef">on</span>:
+  <span style="color:#66d9ef">push</span>:
+    <span style="color:#66d9ef">branches</span>: [ master ]
+<span style="color:#66d9ef">jobs</span>:
+  <span style="color:#66d9ef">build</span>:
+    <span style="color:#66d9ef">runs-on</span>: ubuntu-latest
+    <span style="color:#66d9ef">steps</span>:
+      - <span style="color:#66d9ef">name</span>: Checkout repository
+        <span style="color:#66d9ef">uses</span>: actions/checkout@v2
+
+      - <span style="color:#66d9ef">name</span>: Setup - gcloud / gsutil
+        <span style="color:#66d9ef">uses</span>: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        <span style="color:#66d9ef">with</span>:
+          <span style="color:#66d9ef">service_account_key</span>: ${{ secrets.GCLOUD_SERVICE_KEY }}
+          <span style="color:#66d9ef">export_default_credentials</span>: <span style="color:#66d9ef">true</span>
+      - <span style="color:#66d9ef">name</span>: Set default project
+        <span style="color:#66d9ef">run</span>: gcloud config set core/project &lt;PROJECT NAME<span style="color:#e6db74">&gt;
+</span><span style="color:#e6db74">      - name: Deploy</span>
+        <span style="color:#66d9ef">run</span>: <span style="color:#e6db74">|
+</span><span style="color:#e6db74">          gcloud functions deploy &lt;FUNCTION NAME&gt; \</span>
+                 --entry-point=ServeHTTP \
+                 --runtime=go113 \
+                 --trigger-http \
+                 --allow-unauthenticated
+      - <span style="color:#66d9ef">name</span>: Set permissions
+        <span style="color:#66d9ef">run</span>: |<span style="color:#e6db74">-
+</span><span style="color:#e6db74">          gcloud functions add-iam-policy-binding &lt;FUNCTION NAME&gt;\</span>
+            --member=<span style="color:#e6db74">&#34;allUsers&#34;</span> \
+            --role=<span style="color:#e6db74">&#34;roles/cloudfunctions.invoker&#34;</span>
+</code></pre></div><p>more options <a href="https://cloud.google.com/sdk/gcloud/reference/functions/deploy">here</a></p>
+</section><section>
+<h1 id="push-to-master">Push to master</h1>
+<ul>
+<li>Should be deployed at <code>&lt;region&gt;-&lt;projectid&gt;cloudfunctions.net/&lt;function name&gt;</code></li>
+</ul>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape>curl &lt;region&gt;-&lt;projectid&gt;cloudfunctions.net/&lt;<span style="color:#66d9ef">function</span> name&gt;
+&gt; Hello, World!
+</code></pre></div></section>
+
+  
+
+
+</div>
+      
+
+    </div>
+<script type="text/javascript" src=/talks-cloud-functions/reveal-hugo/object-assign.js></script>
+
+<a href="/talks-cloud-functions/reveal-js/css/print/" id="print-location" style="display: none;"></a>
+<script type="text/javascript">
+  var printLocationElement = document.getElementById('print-location');
+  var link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.type = 'text/css';
+  link.href = printLocationElement.href + (window.location.search.match(/print-pdf/gi) ? 'pdf.css' : 'paper.css');
+  document.getElementsByTagName('head')[0].appendChild(link);
+</script>
+
+<script type="application/json" id="reveal-hugo-site-params">null</script>
+<script type="application/json" id="reveal-hugo-page-params">null</script>
+
+<script src="/talks-cloud-functions/reveal-js/js/reveal.js"></script>
+
+<script type="text/javascript">
+  
+  
+  function camelize(map) {
+    if (map) {
+      Object.keys(map).forEach(function(k) {
+        newK = k.replace(/(\_\w)/g, function(m) { return m[1].toUpperCase() });
+        if (newK != k) {
+          map[newK] = map[k];
+          delete map[k];
+        }
+      });
+    }
+    return map;
+  }
+  
+  var revealHugoDefaults = { center: true, controls: true, history: true, progress: true, transition: "slide" };
+  var revealHugoSiteParams = JSON.parse(document.getElementById('reveal-hugo-site-params').innerHTML);
+  var revealHugoPageParams = JSON.parse(document.getElementById('reveal-hugo-page-params').innerHTML);
+  
+  var options = Object.assign({},
+    camelize(revealHugoDefaults),
+    camelize(revealHugoSiteParams),
+    camelize(revealHugoPageParams));
+  Reveal.initialize(options);
+</script>
+
+
+  
+  
+  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/markdown/marked.js"></script>
+  
+  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/markdown/markdown.js"></script>
+  
+  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/highlight/highlight.js"></script>
+  
+  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/zoom-js/zoom.js"></script>
+  
+  
+  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/notes/notes.js"></script>
+
+
+
+    
+    
+  </body>
+</html>
