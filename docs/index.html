@@ -3,15 +3,15 @@
   <head>
 	<meta name="generator" content="Hugo 0.71.0-DEV" />
     <meta charset="utf-8">
-<title>Google cloud functions</title>
+<title>Cloud storage</title>
 
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="stylesheet" href="/talks-cloud-functions/reveal-js/css/reset.css">
-<link rel="stylesheet" href="/talks-cloud-functions/reveal-js/css/reveal.css"><link rel="stylesheet" href="/talks-cloud-functions/reveal-js/css/theme/black.css" id="theme">
-<link rel="stylesheet" href="/talks-cloud-functions/highlight-js/default.min.css">
+    <link rel="stylesheet" href="/talks-gcs/reveal-js/css/reset.css">
+<link rel="stylesheet" href="/talks-gcs/reveal-js/css/reveal.css"><link rel="stylesheet" href="/talks-gcs/reveal-js/css/theme/black.css" id="theme">
+<link rel="stylesheet" href="/talks-gcs/highlight-js/default.min.css">
     
   </head>
   <body>
@@ -19,90 +19,85 @@
       <div class="slides">
   
 
-    <section><h1 id="google-cloud-functions">Google cloud functions</h1>
+    <section><h1 id="google-cloud-storage">Google Cloud storage</h1>
 </section><section>
-<h1 id="google-cloud-functions-1">Google cloud functions</h1>
+<h1 id="requirements">Requirements</h1>
 <ul>
-<li>Serverless</li>
-<li>Docker-less</li>
+<li>Google cloud service account with:</li>
+<li><code>Storage Admin</code> permissions if creating buckets programmatically</li>
+<li><code>Storage Object Admin</code> for only read/write access to one bucket (can&rsquo;t create new buckets)</li>
 </ul>
 </section><section>
-<h1 id="supported-languages">Supported languages</h1>
+<h1 id="authenticating-locally">Authenticating locally</h1>
 <ul>
-<li>Node.js 8 &amp; Node.js 10</li>
-<li>Python</li>
-<li>Go 1.11 &amp; Go 1.13</li>
+<li><code>export GOOGLE_APPLICATION_CREDENTIALS=&lt;path to json key&gt;</code></li>
 </ul>
 </section><section>
-<h1 id="code-structure">Code structure</h1>
-<pre><code>.
-├── function.go --&gt; function with http.HandlerFunc
-├── go.mod
-└── shared/
-    └── shared.go
-</code></pre></section><section>
-<h1 id="httphandlerfunc">http.Handlerfunc</h1>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">type</span> <span style="color:#a6e22e">HandlerFunc</span> <span style="color:#66d9ef">func</span>(<span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">ResponseWriter</span>, <span style="color:#f92672">*</span><span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">Request</span>)
-</code></pre></div><p>example:</p>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">ServeHTTP</span>(<span style="color:#a6e22e">w</span> <span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">ResponseWriter</span>, <span style="color:#a6e22e">r</span> <span style="color:#f92672">*</span><span style="color:#a6e22e">http</span>.<span style="color:#a6e22e">Request</span>) {
-  <span style="color:#a6e22e">w</span>.<span style="color:#a6e22e">Write</span>([]byte(<span style="color:#e6db74">&#34;Hello, world&#34;</span>))
+<h1 id="create-a-gcs-bucket-via-cloud-console">Create a gcs bucket: via cloud console</h1>
+<ul>
+<li>go to <a href="https://console.cloud.google.com/storage/browser">https://console.cloud.google.com/storage/browser</a></li>
+<li>click <code>CREATE BUCKET</code></li>
+</ul>
+</section><section>
+<h1 id="create-a-gcs-bucket-in-go">Create a gcs bucket: in go</h1>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">NewBucket</span>(<span style="color:#a6e22e">bucketName</span> <span style="color:#66d9ef">string</span>)<span style="color:#66d9ef">error</span>{
+	<span style="color:#a6e22e">ctx</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">Background</span>()
+	<span style="color:#a6e22e">client</span>, <span style="color:#a6e22e">err</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">storage</span>.<span style="color:#a6e22e">NewClient</span>(<span style="color:#a6e22e">ctx</span>)
+	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">err</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span> {
+		<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">err</span>
+	}
+
+	<span style="color:#a6e22e">bucket</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">Bucket</span>(<span style="color:#a6e22e">bucketName</span>)
+	<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">cancel</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">WithTimeout</span>(<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Second</span><span style="color:#f92672">*</span><span style="color:#ae81ff">10</span>)
+	<span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">cancel</span>()
+	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">err</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">bucket</span>.<span style="color:#a6e22e">Create</span>(<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">projectID</span>, <span style="color:#66d9ef">nil</span>); <span style="color:#a6e22e">err</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span> {
+		<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">err</span>
+	}
+	<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>
 }
 </code></pre></div></section><section>
-<h1 id="deploying-from-github-actions">Deploying from github actions</h1>
-<p>Need: github service account with <code>Cloud Functions Admin</code> permissions</p>
-<ul>
-<li>go to <a href="https://console.cloud.google.com/iam-admin/serviceaccounts?project=gopper">cloud console iam admin service accounts</a></li>
-<li>click <code>Create Service account</code></li>
-<li>give service account <code>Cloud Functions Admin</code> permissions</li>
-</ul>
-</section><section>
-<h1 id="deploying-from-github-actions-1">Deploying from github actions</h1>
-<ul>
-<li>download access key</li>
-<li>Put access key in <code>GCLOUD_SERVICE_KEY</code> secret in repo</li>
-</ul>
-</section><section>
-<h1 id="github-actions">Github actions</h1>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">name</span>: cloud-function-deploy
+<h1 id="uploading-files">Uploading files</h1>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">UploadFile</span>(<span style="color:#a6e22e">bucket</span> <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">object</span> <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">r</span> <span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">Reader</span>) <span style="color:#66d9ef">error</span> {
+	<span style="color:#a6e22e">ctx</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">Background</span>()
+	<span style="color:#a6e22e">client</span>, <span style="color:#a6e22e">err</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">storage</span>.<span style="color:#a6e22e">NewClient</span>(<span style="color:#a6e22e">ctx</span>)
+	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">err</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span> {
+		<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Errorf</span>(<span style="color:#e6db74">&#34;storage.NewClient: %v&#34;</span>, <span style="color:#a6e22e">err</span>)
+	}
+	<span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">Close</span>()
 
-<span style="color:#66d9ef">on</span>:
-  <span style="color:#66d9ef">push</span>:
-    <span style="color:#66d9ef">branches</span>: [ master ]
-<span style="color:#66d9ef">jobs</span>:
-  <span style="color:#66d9ef">build</span>:
-    <span style="color:#66d9ef">runs-on</span>: ubuntu-latest
-    <span style="color:#66d9ef">steps</span>:
-      - <span style="color:#66d9ef">name</span>: Checkout repository
-        <span style="color:#66d9ef">uses</span>: actions/checkout@v2
-
-      - <span style="color:#66d9ef">name</span>: Setup - gcloud / gsutil
-        <span style="color:#66d9ef">uses</span>: GoogleCloudPlatform/github-actions/setup-gcloud@master
-        <span style="color:#66d9ef">with</span>:
-          <span style="color:#66d9ef">service_account_key</span>: ${{ secrets.GCLOUD_SERVICE_KEY }}
-          <span style="color:#66d9ef">export_default_credentials</span>: <span style="color:#66d9ef">true</span>
-      - <span style="color:#66d9ef">name</span>: Set default project
-        <span style="color:#66d9ef">run</span>: gcloud config set core/project &lt;PROJECT NAME<span style="color:#e6db74">&gt;
-</span><span style="color:#e6db74">      - name: Deploy</span>
-        <span style="color:#66d9ef">run</span>: <span style="color:#e6db74">|
-</span><span style="color:#e6db74">          gcloud functions deploy &lt;FUNCTION NAME&gt; \</span>
-                 --entry-point=ServeHTTP \
-                 --runtime=go113 \
-                 --trigger-http \
-                 --allow-unauthenticated
-      - <span style="color:#66d9ef">name</span>: Set permissions
-        <span style="color:#66d9ef">run</span>: |<span style="color:#e6db74">-
-</span><span style="color:#e6db74">          gcloud functions add-iam-policy-binding &lt;FUNCTION NAME&gt;\</span>
-            --member=<span style="color:#e6db74">&#34;allUsers&#34;</span> \
-            --role=<span style="color:#e6db74">&#34;roles/cloudfunctions.invoker&#34;</span>
-</code></pre></div><p>more options <a href="https://cloud.google.com/sdk/gcloud/reference/functions/deploy">here</a></p>
-</section><section>
-<h1 id="push-to-master">Push to master</h1>
+	<span style="color:#75715e">// Open local file.
+</span><span style="color:#75715e"></span>	<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">cancel</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">WithTimeout</span>(<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Second</span><span style="color:#f92672">*</span><span style="color:#ae81ff">50</span>)
+	<span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">cancel</span>()
+	<span style="color:#a6e22e">wc</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">Bucket</span>(<span style="color:#a6e22e">bucket</span>).<span style="color:#a6e22e">Object</span>(<span style="color:#a6e22e">object</span>).<span style="color:#a6e22e">NewWriter</span>(<span style="color:#a6e22e">ctx</span>)
+	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">_</span>, <span style="color:#a6e22e">err</span> = <span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">Copy</span>(<span style="color:#a6e22e">wc</span>, <span style="color:#a6e22e">r</span>); <span style="color:#a6e22e">err</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span> {
+		<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Errorf</span>(<span style="color:#e6db74">&#34;io.Copy: %v&#34;</span>, <span style="color:#a6e22e">err</span>)
+	}
+	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">err</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">wc</span>.<span style="color:#a6e22e">Close</span>(); <span style="color:#a6e22e">err</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span> {
+		<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Errorf</span>(<span style="color:#e6db74">&#34;Writer.Close: %v&#34;</span>, <span style="color:#a6e22e">err</span>)
+	}
+	<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>
+}
+</code></pre></div></section><section>
+<h1 id="downloading-files">Downloading files</h1>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape><span style="color:#66d9ef">func</span> <span style="color:#a6e22e">Download</span>(<span style="color:#a6e22e">bucket</span>, <span style="color:#a6e22e">object</span> <span style="color:#66d9ef">string</span>) (<span style="color:#a6e22e">io</span>.<span style="color:#a6e22e">Reader</span>, <span style="color:#66d9ef">error</span>) {
+	<span style="color:#a6e22e">ctx</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">Background</span>()
+	<span style="color:#a6e22e">client</span>, <span style="color:#a6e22e">err</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">storage</span>.<span style="color:#a6e22e">NewClient</span>(<span style="color:#a6e22e">ctx</span>)
+	<span style="color:#66d9ef">if</span> <span style="color:#a6e22e">err</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">nil</span> {
+		<span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>, <span style="color:#a6e22e">fmt</span>.<span style="color:#a6e22e">Errorf</span>(<span style="color:#e6db74">&#34;storage.NewClient: %v&#34;</span>, <span style="color:#a6e22e">err</span>)
+	}
+	<span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">Close</span>()
+	<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">cancel</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">WithTimeout</span>(<span style="color:#a6e22e">ctx</span>, <span style="color:#a6e22e">time</span>.<span style="color:#a6e22e">Second</span><span style="color:#f92672">*</span><span style="color:#ae81ff">50</span>)
+	<span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">cancel</span>()
+	<span style="color:#66d9ef">return</span> <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">Bucket</span>(<span style="color:#a6e22e">bucket</span>).<span style="color:#a6e22e">Object</span>(<span style="color:#a6e22e">object</span>).<span style="color:#a6e22e">NewReader</span>(<span style="color:#a6e22e">ctx</span>)
+}
+</code></pre></div></section><section>
+<h1 id="remote-permissions">Remote permissions</h1>
 <ul>
-<li>Should be deployed at <code>&lt;region&gt;-&lt;projectid&gt;cloudfunctions.net/&lt;function name&gt;</code></li>
+<li>Add <code>allUsers</code> with <code>Storage Object Viewer</code> to allow for public read access at <code>https://storage.googleapis.com/&lt;bucketname&gt;</code></li>
+<li>Add service json key to docker container via <code>ARG</code></li>
+<li>Google cloud functions and Cloud run have default write access to gcs buckets that are in the same project</li>
 </ul>
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="nohighlight" data-noescape>curl &lt;region&gt;-&lt;projectid&gt;cloudfunctions.net/&lt;<span style="color:#66d9ef">function</span> name&gt;
-&gt; Hello, World!
-</code></pre></div></section>
+</section>
 
   
 
@@ -111,9 +106,9 @@
       
 
     </div>
-<script type="text/javascript" src=/talks-cloud-functions/reveal-hugo/object-assign.js></script>
+<script type="text/javascript" src=/talks-gcs/reveal-hugo/object-assign.js></script>
 
-<a href="/talks-cloud-functions/reveal-js/css/print/" id="print-location" style="display: none;"></a>
+<a href="/talks-gcs/reveal-js/css/print/" id="print-location" style="display: none;"></a>
 <script type="text/javascript">
   var printLocationElement = document.getElementById('print-location');
   var link = document.createElement('link');
@@ -126,7 +121,7 @@
 <script type="application/json" id="reveal-hugo-site-params">null</script>
 <script type="application/json" id="reveal-hugo-page-params">null</script>
 
-<script src="/talks-cloud-functions/reveal-js/js/reveal.js"></script>
+<script src="/talks-gcs/reveal-js/js/reveal.js"></script>
 
 <script type="text/javascript">
   
@@ -158,16 +153,16 @@
 
   
   
-  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/markdown/marked.js"></script>
+  <script type="text/javascript" src="/talks-gcs/reveal-js/plugin/markdown/marked.js"></script>
   
-  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/markdown/markdown.js"></script>
+  <script type="text/javascript" src="/talks-gcs/reveal-js/plugin/markdown/markdown.js"></script>
   
-  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/highlight/highlight.js"></script>
+  <script type="text/javascript" src="/talks-gcs/reveal-js/plugin/highlight/highlight.js"></script>
   
-  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/zoom-js/zoom.js"></script>
+  <script type="text/javascript" src="/talks-gcs/reveal-js/plugin/zoom-js/zoom.js"></script>
   
   
-  <script type="text/javascript" src="/talks-cloud-functions/reveal-js/plugin/notes/notes.js"></script>
+  <script type="text/javascript" src="/talks-gcs/reveal-js/plugin/notes/notes.js"></script>
 
 
 
